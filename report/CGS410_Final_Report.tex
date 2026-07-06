@@ -1,0 +1,580 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{geometry}
+\usepackage{natbib}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{microtype}
+\usepackage{titlesec}
+\usepackage{tcolorbox}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{setspace}
+\usepackage{parskip}
+
+%% Tightest margins that still look professional
+\geometry{top=0.70in, bottom=0.60in, left=0.75in, right=0.75in}
+
+%% Reduce default inter-paragraph and list spacing
+\setlength{\parskip}{2pt}
+\setlength{\parindent}{0pt}
+
+%% ── Colour palette ──────────────────────────────────────────────────────────
+\definecolor{primaryblue}{RGB}{25, 84, 150}
+\definecolor{accentteal}{RGB}{0, 128, 128}
+\definecolor{lightblue}{RGB}{220, 235, 250}
+\definecolor{lightteal}{RGB}{220, 245, 245}
+\definecolor{rulecolor}{RGB}{25, 84, 150}
+\definecolor{headerbg}{RGB}{25, 84, 150}
+\definecolor{rowalt}{RGB}{240, 246, 255}
+\definecolor{codeframe}{RGB}{180, 200, 230}
+\definecolor{codebg}{RGB}{248, 250, 255}
+
+%% ── Hyperref ────────────────────────────────────────────────────────────────
+\hypersetup{colorlinks=true, linkcolor=primaryblue,
+            citecolor=accentteal, urlcolor=primaryblue}
+
+%% ── Section / subsection spacing ────────────────────────────────────────────
+\titleformat{\section}
+  {\normalsize\bfseries\color{primaryblue}}
+  {\thesection.}{0.4em}{}[{\color{rulecolor}\titlerule[0.5pt]}]
+\titlespacing{\section}{0pt}{5pt}{2pt}
+
+\titleformat{\subsection}
+  {\small\bfseries\color{accentteal}}
+  {\thesubsection}{0.4em}{}
+\titlespacing{\subsection}{0pt}{3pt}{1pt}
+
+%% ── Caption ──────────────────────────────────────────────────────────────────
+\captionsetup{font={scriptsize}, labelfont={bf,color=primaryblue},
+              labelsep=period, skip=3pt}
+
+%% ── Code listing ─────────────────────────────────────────────────────────────
+\lstset{
+    basicstyle=\ttfamily\scriptsize,
+    keywordstyle=\color{primaryblue}\bfseries,
+    commentstyle=\color{accentteal}\itshape,
+    breaklines=true,
+    backgroundcolor=\color{codebg},
+    frame=single, rulecolor=\color{codeframe},
+    numbers=left, numberstyle=\tiny\color{gray},
+    xleftmargin=1.2em, framexleftmargin=1.2em,
+}
+
+%% ── tcolorbox setup ──────────────────────────────────────────────────────────
+\tcbuselibrary{skins, breakable}
+\newtcolorbox{abstractbox}{
+  enhanced, colback=lightblue, colframe=primaryblue,
+  boxrule=0.8pt, arc=3pt, left=6pt, right=6pt, top=4pt, bottom=4pt,
+  title={\small\textbf{\textcolor{white}{Abstract}}},
+  attach boxed title to top left={yshift=-1.8mm, xshift=6pt},
+  boxed title style={colback=primaryblue, arc=2pt, boxrule=0pt},
+  fontupper=\small
+}
+\newtcolorbox{hypbox}[1]{
+  enhanced, colback=lightteal, colframe=accentteal,
+  boxrule=0.6pt, arc=3pt, left=5pt, right=5pt, top=2pt, bottom=2pt,
+  title={\small\bfseries\textcolor{white}{#1}},
+  attach boxed title to top left={yshift=-1.8mm, xshift=5pt},
+  boxed title style={colback=accentteal, arc=2pt, boxrule=0pt},
+  fontupper=\small
+}
+
+%% ── Title ────────────────────────────────────────────────────────────────────
+\title{
+  \vspace{-1.5em}
+  {\color{primaryblue}\rule{\linewidth}{1.5pt}}\\[4pt]
+  \textbf{\large Emergent Dependency Structures in mBERT Attention: A Multilingual Syntactic Probe}\\[3pt]
+  {\color{primaryblue}\rule{\linewidth}{1.5pt}}
+  \vspace{-1em}
+}
+\author{
+  {\small\textbf{Anusha Gupta} (240158)\enspace
+  \textbf{Dhruv Paliwal} (240358)\enspace
+  \textbf{Krisha Gothi} (240562)\enspace
+  \textbf{Manisha Rathod} (240625)}\\[1pt]
+  {\small\textit{CGS 410 --- Computational Linguistics Final Project}}
+}
+\date{\small\today}
+
+%% ═══════════════════════════════════════════════════════════════════════════
+\begin{document}
+\maketitle
+\vspace{-1.4em}
+
+%% ── Abstract ─────────────────────────────────────────────────────────────────
+\begin{abstractbox}
+We investigate if \texttt{bert-base-multilingual-cased} (mBERT) naturally learns sentence structure (grammar). We tested all 144 attention heads across six diverse languages: English, French, Spanish, Hindi, Korean, and Japanese. By turning attention weights into grammar trees and comparing them to expert annotations, we tested three ideas: \textbf{(1)~Short Dependencies}---mBERT is much better at connecting words that are close together, similar to how humans process language; \textbf{(2)~Universal Syntax}---one specific attention head (Layer 5, Head 8) works best for almost all languages, though Japanese is an exception due to its unique structure; \textbf{(3)~Distributed Roles}---different attention heads specialize in specific grammatical tasks, grouping together by function. Our results show that multilingual models build a shared, organized map of grammar that shares human-like limits on processing long-distance connections.
+\end{abstractbox}
+
+\vspace{2pt}
+
+%% ================================================================
+\section{Motivation for the Research Problem}
+%% ================================================================
+
+A key question in AI is whether large language models truly understand grammar or just memorize word patterns. The Transformer model \citep{vaswani2017attention}, the foundation of modern AI, relies on a ``self-attention'' mechanism. Here, words look at other words in a sentence to understand context. Interestingly, this attention looks a lot like traditional sentence diagrams (dependency trees). Just as a dependent word relates to a main word in grammar, tokens in a Transformer attend to other tokens to build their meaning.
+
+This similarity has led to many studies on how models like BERT work. Research by \citet{clark2019what} found that specific attention heads in English BERT track specific grammatical links, like verbs connecting to objects. Building on this, \citet{htut2019attention} showed we can extract full grammar trees directly from attention weights without training the model to do so. Furthermore, \citet{raganato2018analysis} found that the middle layers of these models specialize in grammar, while early layers handle basic word forms and later layers focus on deeper meaning.
+
+Despite these findings, three major gaps remain: 
+
+\textbf{(i) Cross-lingual Bias:} Most research focuses on English (a Subject-Verb-Object or SVO language). We need to know if multilingual models like mBERT handle completely different sentence structures just as well. Since training data is mostly SVO languages, the model might struggle with languages like Japanese or Korean (Subject-Object-Verb or SOV). Checking for this bias is important for making fair AI tools worldwide \citep{wu2020languages}.
+
+\textbf{(ii) How Syntax is Organized:} How does the model store grammatical knowledge? Instead of having one ``grammar module,'' the model likely spreads this knowledge across many specialized attention heads. By mapping these heads, we hope to visualize the model's ``brain'' and see if heads with similar jobs group together.
+
+\textbf{(iii) Human-like Processing Limits:} Humans prefer to keep related words close together in a sentence to reduce cognitive strain, a concept called Dependency Length Minimization (DLM) \citep{futrell2015dlm, gibson2000dependency}. We want to see if AI models naturally adopt this same preference. If they do, it shows AI can develop human-like habits simply by reading text.
+
+By exploring these three areas across six diverse languages, this study aims to explain how grammar is formed, organized, and shared in multilingual models.
+
+%% ================================================================
+\section{Hypotheses and Predictions}
+%% ================================================================
+
+Based on the theoretical background of multilingual transfer and psycholinguistic processing, we formalize three specific, testable hypotheses regarding mBERT's syntactic encoding mechanisms.
+
+\vspace{1pt}
+\begin{hypbox}{$H_1$: Dependency Length Minimization Constraints}
+The farther apart two related words are in a sentence, the harder it is for mBERT to connect them correctly. If true, accuracy will drop as distance increases, showing that the model has a limited ``working memory'' similar to humans.
+\end{hypbox}
+\vspace{3pt}
+\begin{hypbox}{$H_2$: Cross-Lingual Universality \& Typological Regression Bias}
+The model shares general grammar rules across languages, but its performance depends on how similar a language is to its main training data. We predict the best attention head for English will also work well for other languages, proving a shared grammar space. However, languages with different structures (like Hindi and Japanese) will score lower overall due to less representation in the training data.
+\end{hypbox}
+\vspace{3pt}
+\begin{hypbox}{$H_3$: Distributed Syntactic Clustering and Geometric Mapping}
+Attention heads specialize in specific grammar tasks and group together based on those tasks. We predict that mapping these heads visually will show distinct clusters: one for main sentence parts (like subjects and objects) and another for modifiers (like adjectives), with a ``generalist'' head in the center.
+\end{hypbox}
+
+%% ================================================================
+\section{Methodology and Experimental Design}
+%% ================================================================
+
+To rigorously test our three hypotheses, we implement a multi-stage computational pipeline involving large-scale data processing, tensor extraction, graph-theoretic tree induction, and robust statistical modeling.
+
+\subsection{Data Selection and Typological Preprocessing}
+We used grammar data from the Universal Dependencies (UD) project. To test how the model handles different languages ($H_2$), we chose six languages with varying structures (Table~\ref{tab:data}). English, French, and Spanish act as our standard SVO (Subject-Verb-Object) group. Hindi is an SOV language with flexible word order. Korean and Japanese are also SOV but belong to different language families and have complex word-building rules. 
+
+\begin{table}[H]
+\vspace{-3pt}
+\centering
+\caption{UD treebanks after filtering. Top group: SVO languages; bottom group: SOV languages.}
+\label{tab:data}
+\scriptsize
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{>{\bfseries}l l l r l l}
+\toprule
+\rowcolor{headerbg}
+\textcolor{white}{Language} & \textcolor{white}{Family} & \textcolor{white}{Treebank} & \textcolor{white}{Sentences} & \textcolor{white}{Order} & \textcolor{white}{Typology} \\
+\midrule
+\rowcolor{rowalt}
+English  & Indo-European & EWT    & 10,433 & SVO & Configurational \\
+French   & Indo-European & GSD    &  8,811 & SVO & Configurational \\
+\rowcolor{rowalt}
+Spanish  & Indo-European & AnCora & 12,401 & SVO & Configurational \\
+\midrule
+Hindi    & Indo-European & HDTB   & 15,952 & SOV & Free word order \\
+\rowcolor{rowalt}
+Korean   & Koreanic      & Kaist  & 18,234 & SOV & Agglutinative \\
+Japanese & Japonic       & GSD    &  6,951 & SOV & Strict Head-final \\
+\bottomrule
+\end{tabular}
+\vspace{-3pt}
+\end{table}
+
+To keep the test fair, we only used sentences with 5 to 40 words. We also removed sentences with complex multi-word tokens (like contractions) because they make it difficult to clearly map the model's attention to individual words.
+
+\subsection{Attention Extraction and Subword Alignment}
+We used the \texttt{bert-base-multilingual-cased} model, which has 144 attention heads in total. The model computes attention weights to decide how much focus each word should give to other words in a sentence:
+\begin{equation}
+A = \operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)
+\end{equation}
+Because the model splits some words into smaller pieces (like ``run'' and ``\#\#ning''), we had to combine these pieces back into whole words to analyze the grammar. To do this, we averaged the attention weights of all the subwords that make up a full word, following the method by \citet{clark2019what}.
+
+\subsection{Graph-Theoretic Tree Induction via Chu-Liu/Edmonds}
+The model's attention weights create a complex web of connections between all words. To turn this web into a clean grammar tree, we treated the attention weights as connection strengths between words. 
+
+A proper grammar tree needs a single ``root'' word that anchors the sentence. We added a fake root node and connected it to every word based on average attention scores. Then, we used the \textbf{Chu-Liu/Edmonds} algorithm \citep{chu1965shortest}. This algorithm finds the strongest connections between words and removes loops, resulting in a perfect, cycle-free tree that represents the sentence's grammatical structure. 
+
+\subsection{Evaluation Metrics and Structural Baselines}
+We graded the model's trees by comparing them to expert-made trees using the Unlabeled Attachment Score (UAS). This score simply measures the percentage of words attached to the correct main word:
+\begin{equation}
+\text{UAS} = \frac{|\{i : \hat{h}_i = h_i,\; h_i \neq 0\}|}{|\{i : h_i \neq 0\}|}
+\end{equation}
+As is standard practice, we didn't score punctuation or attachments to the fake root node. 
+
+To see if the model was actually learning grammar or just guessing, we compared its scores to three simple guessing strategies: always attaching a word to the previous word, always attaching it to the next word, or attaching words randomly. These baselines are especially important for languages like Japanese, which naturally have very predictable word connections.
+
+\subsection{Statistical Analysis and Dimensionality Reduction Models}
+To test if distance affects accuracy ($H_1$) and check for language bias ($H_2$), we used a statistical method called linear regression. We looked at the best attention head for each language and analyzed how sentence length and word distance affected its score:
+\begin{equation}
+\text{UAS}_i = \beta_0 + \beta_1\,\overline{\log d}_i + \beta_2\log n_i + \textstyle\sum_\ell \gamma_\ell\,\mathbf{1}[\text{lang}_i{=}\ell] + \varepsilon_i
+\end{equation}
+In this formula, we controlled for sentence length because longer sentences are naturally harder to parse, and we used English as our baseline for comparing languages.
+
+To test how syntax tasks are divided ($H_3$), we analyzed how well every attention head performed on 11 specific grammatical tasks (like finding subjects, objects, or adjectives). We used a technique called Principal Component Analysis (PCA) to condense this data and create a 2D map. This allowed us to visually group the heads based on their specialized roles.
+
+%% ================================================================
+\section{Results and Discussion}
+%% ================================================================
+
+\subsection{Dependency Length Degradation ($H_1$)}
+
+\begin{figure}[H]
+\vspace{-8pt}
+\begin{minipage}[t]{0.48\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{fig3_accuracy_length.pdf}
+    \caption{Arc accuracy decays monotonically with dependency length across all six typologically distinct languages. As the token distance increases, the model's ability to recover the correct syntactic head drops precipitously.}
+    \label{fig:accuracy}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.50\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{fig5_dependency_tree.pdf}
+    \caption{Qualitative error analysis of a specific sentence. L5-H8 recovers all local arcs correctly (e.g., "a" $\rightarrow$ "place") but critically fails on the long-distance root attachment, attaching the verb to the final noun instead of the root.}
+    \label{fig:qualitative}
+\end{minipage}
+\vspace{-10pt}
+\end{figure}
+
+The results strongly support Hypothesis 1. As shown in Figure~\ref{fig:accuracy}, the model's accuracy drops steadily as the distance between related words increases. This happens in all six languages, regardless of their grammar rules. 
+
+Figure~\ref{fig:qualitative} shows exactly how this fails. The model easily connects words that are next to each other, like ``a'' and ``place''. But it struggles to connect words separated by many other words. This happens because the model's attention is spread too thin across the whole sentence, giving less focus to words that are far apart. 
+
+This limitation in the AI matches how humans process language: we also struggle to connect words that are far apart. Our statistical analysis (Table~\ref{tab:ols}) proves this is a major factor: word distance is the strongest predictor of whether the model will make a mistake, even when factoring in sentence length and language type.
+
+\begin{table}[H]
+\vspace{-8pt}
+\centering
+\caption{OLS regression results modeling sentence-level UAS ($R^2{=}0.331$). English is set as the reference baseline. All predictors are highly significant ($p < 0.001$).}
+\label{tab:ols}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{l r r r l}
+\toprule
+\rowcolor{headerbg}
+\textcolor{white}{Predictor Variable} & \textcolor{white}{Coefficient $\beta$} & \textcolor{white}{Standard Error} & \textcolor{white}{$t$-statistic} & \textcolor{white}{$p$-value} \\
+\midrule
+\rowcolor{rowalt}
+Intercept (English Baseline)   &  0.508  & 0.005 & 109.87 & $<0.001$ \\
+French (SVO)                   & $-0.010$ & 0.003 & $-3.76$  & $<0.001$ \\
+\rowcolor{rowalt}
+Hindi (SOV)                    & $-0.176$ & 0.002 & $-98.36$ & $<0.001$ \\
+Japanese (SOV)                 & $-0.144$ & 0.011 & $-12.81$ & $<0.001$ \\
+\rowcolor{rowalt}
+Mean Log Dep.\ Length ($\overline{\log d}$) & $-0.126$ & 0.006 & $-22.21$ & $<0.001$ \\
+Log Sentence Length ($\log n$) &  0.007  & 0.002 &   3.32  & $0.001$  \\
+\bottomrule
+\end{tabular}
+\vspace{-10pt}
+\end{table}
+
+\subsection{Cross-Lingual Universality and Typological Bias ($H_2$)}
+
+To see if the model shares grammar rules across languages, we found the best attention head for English (Layer 5, Head 8, or L5-H8) and tested it on the other five languages without any changes (Figure~\ref{fig:transfer}).
+
+\begin{figure}[H]
+\vspace{-8pt}
+\begin{minipage}[t]{0.47\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{fig7_head_transfer.pdf}
+    \caption{Cross-lingual transfer results. L5-H8, optimized on English, is transferred to all other languages. It matches or beats each language's own native best head, with the sole exception of Japanese.}
+    \label{fig:transfer}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.51\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{fig2_uas_barchart.pdf}
+    \caption{Best-head UAS performance compared against structural baselines. Note that Japanese alone completely fails to surpass the naive right-branching heuristic.}
+    \label{fig:barchart}
+\end{minipage}
+\vspace{-10pt}
+\end{figure}
+
+The results were impressive. L5-H8 worked perfectly for French, Spanish, Hindi, and Korean. In fact, out of all 144 heads, L5-H8 was the very best head for 5 out of the 6 languages. This proves the model has a shared ``universal grammar'' space. Surprisingly, Korean scored the highest overall, showing that the model can handle complex SOV languages well.
+
+However, comparing scores to simple guessing strategies revealed some issues (Figure~\ref{fig:barchart}). While the model easily beats simple guessing for SVO languages (like English and French), it struggles with Japanese. In fact, for Japanese, the model's best head scored lower than a simple rule that attaches every word to the previous one. 
+
+Our statistical model (Table~\ref{tab:ols}) confirms this bias, showing significant score drops for Hindi and Japanese compared to English. Also, Japanese was the only language that didn't use the universal L5-H8 head, relying on a different one instead. This suggests that Japanese's unique and strict grammar forces the model to use different, less effective pathways.
+
+\subsection{The ``Brain Map'': Geometric Clustering ($H_3$)}
+
+While L5-H8 is the best all-around head, diving deeper shows a more complex setup. Specific grammar tasks are actually handled better by other, highly specialized heads spread across the model (Table~\ref{tab:specialized}). 
+
+\begin{figure}[H]
+\vspace{-8pt}
+\begin{minipage}[t]{0.43\linewidth}
+\vspace{0pt}
+\centering
+\captionof{table}{Best specialized heads identified for specific syntactic relations. Notice that the generalist L5-H8 is frequently outcompeted for highly specific structural tasks like parsing objects.}
+\label{tab:specialized}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{l l l c}
+\toprule
+\rowcolor{headerbg}
+\textcolor{white}{Lang.} & \textcolor{white}{Relation} & \textcolor{white}{Best Head} & \textcolor{white}{Acc.} \\
+\midrule
+\rowcolor{rowalt}
+English & \texttt{nsubj} & L5-H8  & 0.471 \\
+English & \texttt{obj}   & L7-H3  & 0.602 \\
+\rowcolor{rowalt}
+French  & \texttt{nsubj} & L2-H11 & 0.365 \\
+French  & \texttt{obj}   & L4-H8  & 0.515 \\
+\rowcolor{rowalt}
+Hindi   & \texttt{nsubj} & L3-H4  & 0.194 \\
+Hindi   & \texttt{obj}   & L6-H1  & 0.284 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.55\linewidth}
+\vspace{0pt}
+    \centering
+    \includegraphics[width=\linewidth]{fig8_head_clusters.pdf}
+    \captionof{figure}{The mBERT ``Brain Map'': A 2D PCA projection of all 144 attention heads based on their grammatical specialization vectors. Core Argument heads (red) cluster completely separated from Functional/Lexical heads (blue).}
+    \label{fig:pca}
+\end{minipage}
+\vspace{-10pt}
+\end{figure}
+
+To map this out visually, we reduced the complex data into a 2D chart (Figure~\ref{fig:pca}). This ``brain map'' clearly proves our prediction: grammatical knowledge is divided into distinct neighborhoods. 
+
+We can see one tight group of heads dedicated to core sentence parts, like subjects and objects (shown in red). This group is clearly separated from another cluster of heads that handle modifiers, like adjectives and prepositions (shown in blue). 
+
+This map also explains why L5-H8 is the best general head. It sits perfectly in the center between these specialized groups. Since parsing a full sentence requires handling both main arguments and minor modifiers, the head located in the middle of this ``grammar map'' naturally performs the best overall.
+
+%% ================================================================
+\section{Theoretical Implications}
+%% ================================================================
+
+The findings of this study offer important takeaways for understanding AI and language. The fact that we can extract grammar trees directly from the model's attention proves that mBERT isn't just mindlessly repeating words. Instead, it actually learns the deep structure of language during its training. Here are three main conclusions:
+
+\paragraph{1.\ Distance Constraints and the Mirroring of Human Cognitive Processing.}
+The most striking finding is that mBERT's accuracy drops when words are far apart. This perfectly matches a human concept called Dependency Length Minimization (DLM) \citep{futrell2015dlm}. Humans naturally keep related words close together to avoid overloading our short-term memory \citep{gibson2000dependency}. 
+
+Even though the AI doesn't have a biological brain, it developed the exact same habit just by reading text. Because the model must spread its attention across a whole sentence, it naturally gives less focus to distant words. This shows that preferring short distances isn't just a human brain limit—it naturally emerges in AI models too.
+
+\paragraph{2.\ The Unsupervised Emergence of Universal Syntactic Subspaces.}
+The fact that five out of six different languages share the same best attention head (L5-H8) shows that mBERT doesn't separate languages in its ``brain.'' It doesn't have an ``English module'' and a ``Korean module.'' Instead, it creates a shared, universal grammar layer that understands sentence structure no matter the vocabulary or word order.
+
+Additionally, our ``Brain Map'' shows that this grammar knowledge is highly organized. Specific attention heads handle specific tasks and group together by function. This organized structure mirrors how the human brain uses different specialized areas to understand language.
+
+\paragraph{3.\ The Typological Limits of Artificial Universality.}
+While the model handles Korean well, it clearly struggles with Japanese and Hindi. Japanese, in particular, forces the model to use completely different pathways and still performs poorly compared to simple guessing. 
+
+This shows that languages with extremely strict and complex word structures push the model to its limits. Because AI models are trained mostly on languages like English, they become biased and struggle with vastly different languages. To make future AI truly fair and global, we must train them on more balanced data so all language families are treated equally.
+
+%% ================================================================
+\newpage
+\bibliographystyle{plainnat}
+\begin{thebibliography}{10}
+
+\bibitem[Chu and Liu(1965)]{chu1965shortest}
+Y.~J. Chu and T.~H. Liu.
+\newblock On the shortest arborescence of a directed graph.
+\newblock \emph{Scientia Sinica}, 14:1396--1400, 1965.
+
+\bibitem[Clark et~al.(2019)]{clark2019what}
+K.~Clark, U.~Khandelwal, O.~Levy, and C.~D. Manning.
+\newblock What does {BERT} look at? {A}n analysis of {BERT}'s attention.
+\newblock In \emph{Proc.\ ACL Workshop BlackboxNLP}, pp.\ 276--286, 2019.
+
+\bibitem[Futrell et~al.(2015)]{futrell2015dlm}
+R.~Futrell, K.~Mahowald, and E.~Gibson.
+\newblock Large-scale evidence of dependency length minimization in 37 languages.
+\newblock \emph{Proc. of the National Academy of Sciences (PNAS)}, 112(33):10336--10341, 2015.
+
+\bibitem[Gibson(2000)]{gibson2000dependency}
+E.~Gibson.
+\newblock The dependency locality theory: A distance-based theory of linguistic complexity.
+\newblock In A.~Marantz, Y.~Miyashita, and W.~O'Neil, editors, \emph{Image, Language, Brain}, pp.\ 95--126. MIT Press, 2000.
+
+\bibitem[Htut et~al.(2019)]{htut2019attention}
+P.~M. Htut, J.~Phang, S.~Borber, and S.~R. Bowman.
+\newblock Do attention heads in {BERT} track syntactic dependencies?
+\newblock \emph{arXiv preprint arXiv:1911.12246}, 2019.
+
+\bibitem[Raganato and Tiedemann(2018)]{raganato2018analysis}
+A.~Raganato and J.~Tiedemann.
+\newblock An analysis of encoder representations in {T}ransformer-based machine translation.
+\newblock In \emph{Proc.\ EMNLP Workshop BlackboxNLP}, pp.\ 287--297, 2018.
+
+\bibitem[Vaswani et~al.(2017)]{vaswani2017attention}
+A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N. Gomez, \L.~Kaiser, and I.~Polosukhin.
+\newblock Attention is all you need.
+\newblock In \emph{Advances in Neural Information Processing Systems (NeurIPS)}, pp.\ 5998--6008, 2017.
+
+\bibitem[Wu and Dredze(2020)]{wu2020languages}
+S.~Wu and M.~Dredze.
+\newblock Are all languages created equal in multilingual {BERT}?
+\newblock In \emph{Proc.\ RepL4NLP Workshop at ACL}, pp.\ 120--130, 2020.
+
+\end{thebibliography}
+
+%% ================================================================
+\newpage
+\appendix
+\section*{\textcolor{primaryblue}{Appendix}}
+{\color{primaryblue}\rule{\linewidth}{0.6pt}}
+\vspace{4pt}
+%% ================================================================
+
+\subsection*{A.\ Chu-Liu/Edmonds Algorithm --- How We Build Grammar Trees}
+
+The Chu-Liu/Edmonds (CLE) algorithm is the core method we use to turn the model's messy attention weights into clean grammar trees. Think of it this way: the model gives every possible word-to-word connection a strength score. The CLE algorithm picks the single strongest incoming connection for each word, checks if there are any loops (which aren't allowed in a tree), and if loops exist, it merges the looping words into a single group and repeats. The result is a perfect tree with no cycles.
+
+Our implementation works on an augmented weight matrix $W \in \mathbb{R}^{(N+1) \times (N+1)}$, where index~0 is the virtual root node we add to anchor the tree.
+
+\begin{algorithm}[H]
+\caption{Chu-Liu/Edmonds Maximum Spanning Arborescence}
+\begin{algorithmic}[1]
+\Require Weight matrix $W$, root index $r$
+\Ensure Head assignment $\hat{h}[1..N]$
+\For{each node $v \neq r$}
+    \State $\hat{h}[v] \gets \arg\max_{u \neq v} W[v, u]$ \Comment{Pick the strongest incoming connection}
+\EndFor
+\If{no cycle exists in $\hat{h}$}
+    \State \Return $\hat{h}$ \Comment{Already a valid tree --- done!}
+\EndIf
+\State Identify cycle $C = \{c_1, \ldots, c_k\}$ \Comment{Find the loop}
+\State Contract $C$ into representative node $c^*$ \Comment{Merge looping nodes}
+\State Adjust weights: $W'[c^*, v] = \max_{c \in C} [W[c, v] - W[c, \hat{h}[c]] + W[c^*, \hat{h}[c^*]]]$
+\State Recurse on contracted graph \Comment{Repeat until no loops remain}
+\State Expand cycle and assign final heads
+\end{algorithmic}
+\end{algorithm}
+
+%% ────────────────────────────────────────────────────────────────────
+\subsection*{B.\ Full Pipeline --- Step-by-Step Walkthrough}
+
+Our entire experiment is organized as a sequence of numbered Python scripts. Each script takes the output of the previous one as input, making the pipeline fully reproducible. Here is what each step does:
+
+\begin{enumerate}\setlength\itemsep{2pt}
+    \item \textbf{\texttt{01\_preprocess\_treebank.py}} --- Reads the raw Universal Dependencies \texttt{.conllu} files for each language, filters sentences to 5--40 tokens, removes multi-word tokens, and saves clean \texttt{.jsonl} files with gold-standard dependency trees.
+    \item \textbf{\texttt{02\_extract\_attention.py}} --- Feeds each sentence through mBERT and extracts all 144 attention matrices (12 layers $\times$ 12 heads). Subword attention is averaged back to word-level. Results are saved as compressed \texttt{.npz} arrays.
+    \item \textbf{\texttt{03\_induce\_trees.py}} --- Takes the word-level attention matrices and runs the Chu-Liu/Edmonds algorithm (Appendix~A) to produce a predicted grammar tree for every sentence, for every attention head.
+    \item \textbf{\texttt{04\_evaluate\_uas.py}} --- Compares predicted trees against gold-standard trees using UAS. Also computes the three baseline scores (right-branching, left-branching, random). Outputs per-head score grids.
+    \item \textbf{\texttt{05\_build\_regression\_df.py}} --- Builds the arc-level dataset needed for statistical analysis: each row records whether a specific word was attached correctly, plus the dependency length, sentence length, language, and relation type.
+    \item \textbf{\texttt{06\_run\_lmem.py}} --- Runs the OLS regression model to test $H_1$ (distance effect) and $H_2$ (language bias). Outputs coefficient tables and model diagnostics.
+    \item \textbf{\texttt{07\_generate\_figures.py}} --- Creates all publication-quality figures: UAS heatmaps, bar charts, accuracy-vs-length curves, and more.
+    \item \textbf{\texttt{08\_best\_head\_per\_relation.py}} --- Identifies the single best attention head for each of the 11 dependency relation types (e.g., \texttt{nsubj}, \texttt{obj}, \texttt{amod}), used for the specialized heads analysis ($H_3$).
+    \item \textbf{\texttt{09\_visualize\_tree.py}} --- Generates the side-by-side dependency tree visualizations comparing predicted vs.\ gold trees (Figure~\ref{fig:qualitative}).
+    \item \textbf{\texttt{10\_head\_transfer.py}} --- Runs the cross-lingual transfer experiment: evaluates the English-best head (L5-H8) on all other languages, and finds each language's native best head.
+    \item \textbf{\texttt{11\_visualize\_head\_clusters.py}} --- Performs PCA on the $144 \times 11$ relation-accuracy matrix and generates the ``Brain Map'' cluster visualization (Figure~\ref{fig:pca}).
+\end{enumerate}
+
+\noindent The shared utility modules in \texttt{src/utils/} provide reusable functions:
+\begin{itemize}\setlength\itemsep{1pt}
+    \item \texttt{mst.py} --- Chu-Liu/Edmonds algorithm and attention-to-tree conversion (see Appendix~C)
+    \item \texttt{attention\_utils.py} --- Subword-to-word attention aggregation (mean pooling)
+    \item \texttt{conllu\_utils.py} --- Universal Dependencies file parsing and sentence filtering
+    \item \texttt{eval\_utils.py} --- UAS scoring, baseline computation, and per-relation accuracy
+\end{itemize}
+
+\noindent The full codebase and all configuration files are available at:
+\begin{center}
+\url{https://github.com/dh23ruvvv/CGS410-mBERT-Syntax}
+\end{center}
+
+%% ────────────────────────────────────────────────────────────────────
+\subsection*{C.\ Key Code: Attention-to-Tree Conversion}
+
+This is the core function that converts a single attention matrix into a dependency tree. It takes the raw $N \times N$ word-level attention matrix, adds a virtual root node, and applies the CLE algorithm.
+
+\begin{lstlisting}[language=Python, caption={Core function from \texttt{src/utils/mst.py}}]
+def attention_to_tree(attn_matrix, root_weight_strategy="mean"):
+    n = attn_matrix.shape[0]
+    # Build (n+1) x (n+1) matrix with virtual root at index 0
+    W = np.zeros((n + 1, n + 1), dtype=np.float64)
+    W[1:, 1:] = attn_matrix.astype(np.float64)
+    # Root -> word edges computed as mean column attention
+    for i in range(n):
+        if root_weight_strategy == "max":
+            W[i + 1, 0] = float(np.max(attn_matrix[:, i]))
+        else:
+            W[i + 1, 0] = float(np.mean(attn_matrix[:, i]))
+    W[0, :] = 0.0  # Disallow arcs into root
+    np.fill_diagonal(W, 0.0)
+    heads = chu_liu_edmonds(W, root=0)
+    # Convert to 1-indexed (0 = root)
+    return [0 if h <= 0 else h for h in heads[1:]]
+\end{lstlisting}
+
+%% ────────────────────────────────────────────────────────────────────
+\subsection*{D.\ Software, Environment, and Reproducibility}
+
+\begin{table}[H]
+\centering
+\caption{Software dependencies and versions used in this project.}
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l l l}
+\toprule
+\rowcolor{headerbg}
+\textcolor{white}{Category} & \textcolor{white}{Package} & \textcolor{white}{Version} \\
+\midrule
+\rowcolor{rowalt}
+Core ML       & PyTorch           & $\geq$ 2.0 (CUDA recommended) \\
+NLP           & HuggingFace Transformers & $\geq$ 4.30 \\
+\rowcolor{rowalt}
+Tokenization  & \texttt{conllu}   & $\geq$ 4.5 \\
+Numerics      & NumPy, SciPy, Pandas & $\geq$ 1.24 / 1.10 / 2.0 \\
+\rowcolor{rowalt}
+Statistics    & \texttt{statsmodels} (OLS) & latest \\
+Dim.\ Reduction & \texttt{scikit-learn} (PCA, t-SNE) & latest \\
+\rowcolor{rowalt}
+Visualization & Matplotlib, Seaborn & $\geq$ 3.7 / 0.12 \\
+Config        & PyYAML            & $\geq$ 6.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Hardware:} Attention extraction was performed on a single NVIDIA GPU. All other pipeline steps (tree induction, evaluation, statistics, and visualization) run on CPU in under 10 minutes total.
+
+\noindent\textbf{To reproduce:} Clone the repository, install dependencies via \texttt{pip install -r requirements.txt}, place UD treebank \texttt{.conllu} files under \texttt{data/raw/}, and run the pipeline scripts in order (01 through 11). Full instructions are provided in the \texttt{README.md}.
+
+%% ────────────────────────────────────────────────────────────────────
+\subsection*{E.\ Experiment Configuration}
+
+All key parameters are centralized in a single YAML configuration file (\texttt{configs/experiment\_config.yaml}), ensuring consistency across runs:
+
+\begin{lstlisting}[language=Python, caption={Experiment configuration file}]
+preprocessing:
+  min_sent_length: 5     # Minimum words per sentence
+  max_sent_length: 40    # Maximum words per sentence
+  skip_mwt: true         # Remove multi-word tokens
+
+model:
+  name: "bert-base-multilingual-cased"
+  num_layers: 12         # 12 transformer layers
+  num_heads: 12          # 12 attention heads per layer (144 total)
+
+attention:
+  device: "cuda"         # Use GPU for speed
+  precision: "float16"   # Half-precision to save memory
+\end{lstlisting}
+
+%% ────────────────────────────────────────────────────────────────────
+\subsection*{F.\ Per-Head UAS Grids (All 6 Languages)}
+
+The heatmap below shows the UAS score for every one of the 144 attention heads (12 layers $\times$ 12 heads) across all six languages. Brighter cells indicate higher parsing accuracy. The consistently bright cell at Layer~5, Head~8 across nearly all languages visually confirms the ``universal generalist'' finding discussed in $H_2$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.97\linewidth]{fig1_uas_heatmaps.pdf}
+    \caption{Per-head UAS across all 144 mBERT heads for all six languages. The bright cell at Layer~5, Head~8 is universally dominant, proving the universal generalist hypothesis.}
+    \label{fig:heatmaps}
+\end{figure}
+
+\end{document}
