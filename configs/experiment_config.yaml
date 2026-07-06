@@ -1,0 +1,33 @@
+preprocessing:
+  min_sent_length: 5
+  max_sent_length: 40
+  skip_mwt: true
+
+model:
+  name: "bert-base-multilingual-cased"
+  num_layers: 12
+  num_heads: 12
+
+attention:
+  device: "cuda"
+  precision: "float16"
+
+languages:
+  en:
+    treebank_name: "UD_English-EWT"
+    treebank_dir: "data/raw/UD_English-EWT"
+  fr:
+    treebank_name: "UD_French-GSD"
+    treebank_dir: "data/raw/UD_French-GSD"
+  hi:
+    treebank_name: "UD_Hindi-HDTB"
+    treebank_dir: "data/raw/UD_Hindi-HDTB"
+  ja:
+    treebank_name: "UD_Japanese-GSD"
+    treebank_dir: "data/raw/UD_Japanese-GSD"
+  ko:
+    treebank_name: "UD_Korean-Kaist"
+    treebank_dir: "data/raw/UD_Korean-Kaist"
+  es:
+    treebank_name: "UD_Spanish-AnCora"
+    treebank_dir: "data/raw/UD_Spanish-AnCora"
