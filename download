@@ -1,0 +1,46 @@
+# ── Python ──────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# ── Large generated data (reproducible via pipeline) ──
+data/raw/
+data/processed/
+data/attention/
+results/predicted_trees/
+results/uas_tables/
+results/uas_heatmaps/
+results/regression/
+results/transfer/
+
+# ── Keep only the figures in results/ ──
+# results/figures/ is tracked
+
+# ── UD treebank zip archives ──
+UD_*.zip
+
+# ── Old PDFs and drafts ──
+CGS (1).pdf
+CGS (3).pdf
+CGS_proposal.pdf
+scratch_proposal.txt
+
+# ── VS Code extension file ──
+*.vsix
+
+# ── Report build artifacts ──
+report/*.aux
+report/*.log
+report/*.out
+report/*.synctex.gz
+report/*.fls
+report/*.fdb_latexmk
+report/*.bbl
+report/*.blg
+report/*.html
+
+# ── OS files ──
+.DS_Store
+Thumbs.db
+desktop.ini
